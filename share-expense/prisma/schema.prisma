@@ -1,0 +1,154 @@
+// ShareExpense Prisma Schema
+// PostgreSQL relational database for shared expense tracking
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  memberships    GroupMembership[]
+  paidExpenses   Expense[]        @relation("PaidBy")
+  expenseSplits  ExpenseSplit[]
+  settlementsOut Settlement[]     @relation("SettlementFrom")
+  settlementsIn  Settlement[]     @relation("SettlementTo")
+  importReports  ImportReport[]
+  createdGroups  Group[]          @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Group {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById Int      @map("created_by")
+
+  createdBy   User             @relation("CreatedBy", fields: [createdById], references: [id])
+  memberships GroupMembership[]
+  expenses    Expense[]
+  settlements Settlement[]
+  imports     ImportReport[]
+
+  @@map("groups")
+}
+
+model GroupMembership {
+  id       Int       @id @default(autoincrement())
+  userId   Int       @map("user_id")
+  groupId  Int       @map("group_id")
+  joinedAt DateTime  @map("joined_at")
+  leftAt   DateTime? @map("left_at")
+  role     String    @default("member") // "admin" | "member"
+
+  user  User  @relation(fields: [userId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId, joinedAt])
+  @@map("group_memberships")
+}
+
+model Expense {
+  id             Int      @id @default(autoincrement())
+  groupId        Int      @map("group_id")
+  paidByUserId   Int      @map("paid_by_user_id")
+  description    String
+  amount         Decimal  @db.Decimal(12, 2)
+  currency       String   @default("INR") // "INR" | "USD"
+  exchangeRate   Decimal  @default(1.0) @map("exchange_rate") @db.Decimal(10, 4)
+  splitType      String   @map("split_type") // "equal" | "unequal" | "percentage" | "share"
+  notes          String?
+  expenseDate    DateTime @map("expense_date") @db.Date
+  isSettlement   Boolean  @default(false) @map("is_settlement")
+  importSource   String?  @map("import_source") // "csv" | "manual"
+  importRow      Int?     @map("import_row")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  group  Group          @relation(fields: [groupId], references: [id])
+  paidBy User           @relation("PaidBy", fields: [paidByUserId], references: [id])
+  splits ExpenseSplit[]
+
+  @@map("expenses")
+}
+
+model ExpenseSplit {
+  id             Int     @id @default(autoincrement())
+  expenseId      Int     @map("expense_id")
+  userId         Int     @map("user_id")
+  shareAmount    Decimal @map("share_amount") @db.Decimal(12, 2)
+  shareAmountInr Decimal @map("share_amount_inr") @db.Decimal(12, 2)
+  percentage     Decimal? @db.Decimal(6, 2)
+  shareUnits     Decimal? @map("share_units") @db.Decimal(6, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@map("expense_splits")
+}
+
+model Settlement {
+  id             Int      @id @default(autoincrement())
+  groupId        Int      @map("group_id")
+  fromUserId     Int      @map("from_user_id")
+  toUserId       Int      @map("to_user_id")
+  amount         Decimal  @db.Decimal(12, 2)
+  currency       String   @default("INR")
+  settlementDate DateTime @map("settlement_date") @db.Date
+  notes          String?
+  importSource   String?  @map("import_source")
+  importRow      Int?     @map("import_row")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  group Group @relation(fields: [groupId], references: [id])
+  from  User  @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  to    User  @relation("SettlementTo", fields: [toUserId], references: [id])
+
+  @@map("settlements")
+}
+
+model ImportReport {
+  id             Int      @id @default(autoincrement())
+  groupId        Int      @map("group_id")
+  filename       String
+  totalRows      Int      @map("total_rows")
+  importedOk     Int      @map("imported_ok")
+  anomaliesFound Int      @map("anomalies_found")
+  skipped        Int      @default(0)
+  importedAt     DateTime @default(now()) @map("imported_at")
+  importedById   Int      @map("imported_by")
+
+  group      Group           @relation(fields: [groupId], references: [id])
+  importedBy User            @relation(fields: [importedById], references: [id])
+  anomalies  ImportAnomaly[]
+
+  @@map("import_reports")
+}
+
+model ImportAnomaly {
+  id                Int     @id @default(autoincrement())
+  importReportId    Int     @map("import_report_id")
+  csvRow            Int     @map("csv_row")
+  anomalyType       String  @map("anomaly_type")
+  severity          String  // "error" | "warning" | "info"
+  description       String
+  originalData      String  @map("original_data") // JSON
+  actionTaken       String  @map("action_taken") // "auto_fixed" | "flagged" | "skipped" | "user_resolved"
+  resolutionDetails String? @map("resolution_details")
+  userApproved      Boolean @default(false) @map("user_approved")
+
+  importReport ImportReport @relation(fields: [importReportId], references: [id], onDelete: Cascade)
+
+  @@map("import_anomalies")
+}
