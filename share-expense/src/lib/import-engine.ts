@@ -742,7 +742,7 @@ export function calculateBalances(expenses: ParsedExpense[]): {
   return { memberBalances, simplifiedDebts, pairwiseBalances: pairwise };
 }
 
-function calculateShares(
+export function calculateShares(
   expense: ParsedExpense,
   amountInr: number
 ): Record<string, number> {
