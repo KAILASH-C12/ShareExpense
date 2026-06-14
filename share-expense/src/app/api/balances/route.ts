@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-const USD_TO_INR = 83.5;
+const USD_TO_INR = process.env.USD_TO_INR_RATE ? parseFloat(process.env.USD_TO_INR_RATE) : 83.5;
 
 // GET /api/balances?groupId=1
 export async function GET(request: NextRequest) {

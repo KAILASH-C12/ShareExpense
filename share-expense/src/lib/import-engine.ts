@@ -114,7 +114,7 @@ const MEMBERSHIP_PERIODS: Record<string, { joined: string; left: string | null }
   "Sam":   { joined: "2026-04-08", left: null },
 };
 
-const USD_TO_INR = 83.5;
+const USD_TO_INR = process.env.USD_TO_INR_RATE ? parseFloat(process.env.USD_TO_INR_RATE) : 83.5;
 
 // ─── DATE PARSING ──────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import type { ParsedExpense, ImportAnomaly } from "@/lib/import-engine";
 
-const USD_TO_INR = 83.5;
+const USD_TO_INR = process.env.USD_TO_INR_RATE ? parseFloat(process.env.USD_TO_INR_RATE) : 83.5;
 
 interface ConfirmImportBody {
   groupId: number;
